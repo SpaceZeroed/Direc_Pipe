@@ -89,7 +89,3 @@ double TargettingMethod::RuK(double tempL, double tempP)
 
     return un;
 }
-int main()
-{
-    cout << "FO";
-}
