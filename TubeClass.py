@@ -292,7 +292,7 @@ class TubeSolver(Tube):
 
 class Rod():
     dict_id_dimensions = {1: 4, 2: 4}
-    bc_id_dimensions = {1: 4}
+    bc_id_dimensions = {1: 4,2: 4, 3: 4, 4: 4}
 
     def __init__(self, l=10, n=1, delta=0.1, task_id=1, bc_id=1, totalNodes=1000):
         self.__l = l
@@ -324,7 +324,8 @@ class Rod():
 
     @property
     def Jx(self):
-        return np.pi * 0.5**4 / 64 * (1 - 0.49**4 / 0.5**4)
+        return np.pi * 0.05**4 / 64 * (1 - 0.04**4 / 0.05**4)
+        #return np.pi * 0.8**4 / 64
 
     @property
     def P_equal(self):
@@ -358,6 +359,18 @@ class Rod():
         dict_bc = {1: [lambda ya, yb: np.array([ya[0], yb[0]-self.delta, ya[2], yb[1]]),
                        lambda ya, yb: np.array(
                            [ya[0]-self.delta, yb[0], ya[1], yb[2]]),
+                       lambda ya, yb: np.array([ya[0], yb[0], ya[1], yb[2]])],
+                       2: [lambda ya, yb: np.array([ya[0], yb[0]-self.delta, ya[1], yb[1]]),
+                       lambda ya, yb: np.array(
+                           [ya[0]-self.delta, yb[0], ya[1], yb[1]]),
+                       lambda ya, yb: np.array([ya[0], yb[0], ya[1], yb[2]])],
+                       3: [lambda ya, yb: np.array([ya[0], yb[0]-self.delta, ya[3], yb[1]]),
+                       lambda ya, yb: np.array(
+                           [ya[0]-self.delta, yb[0], ya[1], yb[3]]),
+                       lambda ya, yb: np.array([ya[0], yb[0], ya[1], yb[2]])],
+                       4: [lambda ya, yb: np.array([ya[0], yb[0]-self.delta, ya[2], yb[2]]),
+                       lambda ya, yb: np.array(
+                           [ya[0]-self.delta, yb[0], ya[2], yb[2]]),
                        lambda ya, yb: np.array([ya[0], yb[0], ya[1], yb[2]])]}
         return dict_bc[self.bc_id]
 
@@ -388,6 +401,9 @@ class Rod():
                            0], self.x[0], self.y[0], tol=1e-10, max_nodes=self.totalNodes)
             s3 = solve_bvp(self.fun_maker(), self.bc_maker()[
                            1], self.x[2], self.y[2], tol=1e-10, max_nodes=self.totalNodes)
+            #if ( s1.success == False or s3.success == False):
+                #print("Sol is False!!!")
+            #print(s1)    
             w1 = s1.y[0]
             w2 = w1[-1]*np.ones(self.x[1].shape[0])
             w3 = s3.y[0]
@@ -406,113 +422,133 @@ class Rod():
         else:
             return self.x[0]
 
+
 class CanalRod():
-  dict_id_dimensions = {1:4,2:4}
-  bc_id_dimensions = {1:4}
-  def __init__(self,l=10,n=1,delta=0.1,task_id = 1,bc_id=1,totalNodes=1000):
-    if l!=0:
-      self.__l = abs(l)
-    else:
-      raise ValueError("L can't be 0")
-    if n>=0:
-      self.__n = n
-    else:
-      raise ValueError("n can't negative")
-    if task_id in self.dict_id_dimensions.keys():
-      self.__task_id = task_id
-    else:
-      raise ValueError('Wrong task_id')
-    if bc_id in self.bc_id_dimensions.keys() and self.bc_id_dimensions[bc_id] == self.dict_id_dimensions[self.task_id]:
-      self.__bc_id = bc_id
-    else:
-      print('bc_id and task_id doesnt match. Set it to default for this task_id')
-      self.__bc_id = 1
-    if delta!=0:
-      self.__delta = abs(delta)
-    else:
-      raise ValueError("Delta can't be 0")
-    if totalNodes!=0:
-      self.__totalNodes = abs(totalNodes)
-    else:
-      raise ValueError("totalNodes can't be 0")        
-  @property
-  def l(self): # длина трубы
-    return self.__l
-  @l.setter
-  def l(self,l):
-    if l!=0:
-      self.__l = abs(l)
-    else:
-      raise ValueError("L can't be 0")
-  @property
-  def n(self):
-    return self.__n
-  @n.setter
-  def n(self,n):
-    if n>=0:
-      self.__n = n
-    else:
-      raise ValueError("n can't be negative")
-  @property
-  def delta(self):
-    return self.__delta
-  @delta.setter
-  def delta(self,d):
-    if d!=0:
-      self.__delta = abs(d)
-    else:
-      raise ValueError("Delta can't be 0") 
-  @property
-  def task_id(self):
-    return self.__task_id
-  @task_id.setter
-  def task_id(self,task_id):
-    if task_id in self.dict_id_dimensions.keys():
-          self.__task_id = task_id
-    else:
-          raise ValueError('Wrong task_id')
-  @property
-  def bc_id(self):
-    return self.__bc_id
-  @bc_id.setter
-  def bc_id(self,id):
-    if id in self.bc_id_dimensions.keys() and self.bc_id_dimensions[id] == self.dict_id_dimensions[self.task_id]:
-      self.__bc_id = id
-    else:
-      print('bc_id and task_id doesnt match. Set it to default for this task_id')
-      self.__bc_id = 1
-  @property
-  def totalNodes(self):
-    return self.__totalNodes
-  @totalNodes.setter
-  def totalNodes(self,totalNodes):
-    if totalNodes!=0:
-      self.__totalNodes = abs(totalNodes)
-    else:
-      raise ValueError("totalNodes can't be 0")
-  @property            
-  def RodCount(self):
-    if self.n<16:
-      return 1
-    else:
-      i=0
-      while self.n>=16*9**i:
-        i+=1
-      return 3**i
-  @property
-  def newn(self):
-    newn = self.n if self.n<16 else self.n/(9**(np.log(self.RodCount)/np.log(3)))
-    return newn  
-  @property
-  def w(self):
-    w = [Rod(l=self.l/self.RodCount,task_id=self.task_id,bc_id=self.bc_id,totalNodes=self.totalNodes,delta=self.delta*(-1)**(i),n=self.newn) 
-         for i in range(1,self.RodCount+1)]
-    return w 
-  @property  
-  def x(self):
-    return  np.hstack([np.add(self.w[i].stacked_x, self.l/self.RodCount*i) for i in range(len(self.w))])
-  @property
-  def solution(self):
-    #print(f'DEBUG: number of class ROD:{len(self.w)}')
-    s = [a.solution for a in self.w]
-    return np.hstack(s)
+    dict_id_dimensions = {1: 4, 2: 4}
+    bc_id_dimensions = {1: 4,2: 4, 3: 4, 4: 4}
+
+    def __init__(self, l=10, n=1, delta=0.1, task_id=1, bc_id=1, totalNodes=1000):
+        if l != 0:
+            self.__l = abs(l)
+        else:
+            raise ValueError("L can't be 0")
+        if n >= 0:
+            self.__n = n
+        else:
+            raise ValueError("n can't negative")
+        if task_id in self.dict_id_dimensions.keys():
+            self.__task_id = task_id
+        else:
+            raise ValueError('Wrong task_id')
+        if bc_id in self.bc_id_dimensions.keys() and self.bc_id_dimensions[bc_id] == self.dict_id_dimensions[self.task_id]:
+            self.__bc_id = bc_id
+        else:
+            print('bc_id and task_id doesnt match. Set it to default for this task_id')
+            self.__bc_id = 1
+        if delta != 0:
+            self.__delta = abs(delta)
+        else:
+            raise ValueError("Delta can't be 0")
+        if totalNodes != 0:
+            self.__totalNodes = abs(totalNodes)
+        else:
+            raise ValueError("totalNodes can't be 0")
+
+    @property
+    def l(self):  # длина трубы
+        return self.__l
+
+    @l.setter
+    def l(self, l):
+        if l != 0:
+            self.__l = abs(l)
+        else:
+            raise ValueError("L can't be 0")
+
+    @property
+    def n(self):
+        return self.__n
+
+    @n.setter
+    def n(self, n):
+        if n >= 0:
+            self.__n = n
+        else:
+            raise ValueError("n can't be negative")
+
+    @property
+    def delta(self):
+        return self.__delta
+
+    @delta.setter
+    def delta(self, d):
+        if d != 0:
+            self.__delta = abs(d)
+        else:
+            raise ValueError("Delta can't be 0")
+
+    @property
+    def task_id(self):
+        return self.__task_id
+
+    @task_id.setter
+    def task_id(self, task_id):
+        if task_id in self.dict_id_dimensions.keys():
+            self.__task_id = task_id
+        else:
+            raise ValueError('Wrong task_id')
+
+    @property
+    def bc_id(self):
+        return self.__bc_id
+
+    @bc_id.setter
+    def bc_id(self, id):
+        if id in self.bc_id_dimensions.keys() and self.bc_id_dimensions[id] == self.dict_id_dimensions[self.task_id]:
+            self.__bc_id = id
+        else:
+            print('bc_id and task_id doesnt match. Set it to default for this task_id')
+            self.__bc_id = 1
+
+    @property
+    def totalNodes(self):
+        return self.__totalNodes
+
+    @totalNodes.setter
+    def totalNodes(self, totalNodes):
+        if totalNodes != 0:
+            self.__totalNodes = abs(totalNodes)
+        else:
+            raise ValueError("totalNodes can't be 0")
+
+    @property
+    def RodCount(self):
+        if self.n < 16:
+            return 1
+        else:
+            i = 0
+            while self.n >= 16*9**i:
+                i += 1
+            return 3**i
+
+    @property
+    def newn(self):
+        newn = self.n if self.n < 16 else self.n / \
+            (9**(np.log(self.RodCount)/np.log(3)))
+        return newn
+
+    @property
+    def w(self):
+        w = [Rod(l=self.l/self.RodCount, task_id=self.task_id, bc_id=self.bc_id, totalNodes=self.totalNodes, delta=self.delta*(-1)**(i), n=self.newn)
+             for i in range(1, self.RodCount+1)]
+        return w
+
+    @property
+    def x(self):
+        return np.hstack([np.add(self.w[i].stacked_x, self.l/self.RodCount*i) for i in range(len(self.w))])
+
+    @property
+    def solution(self):
+        # print(f'DEBUG: number of class ROD:{len(self.w)}')
+        s = [a.solution for a in self.w]
+        return np.hstack(s)
