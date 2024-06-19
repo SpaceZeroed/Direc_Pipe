@@ -13,6 +13,16 @@ def addQdict_maker(X0, Plist, Sigma):
         ans.append(dict(zip(temp, (X0[i], Sigma[i], Plist[i]))))
     return ans
 
+def set_plot(xlabel='X',ylabel='W',title='Solution',size=(10,6)):
+  plt.figure(figsize=size)
+  plt.title(title)
+  plt.xlabel(xlabel)
+  plt.ylabel(ylabel)
+def Plotting(solution,legend='Undefined'):
+  y_measles_plot = solution.sol(solution.x)
+  print(f'Максимальный изгиб:{max(abs(y_measles_plot[0]))}')
+  plt.plot(solution.x, y_measles_plot[0], label=legend)
+  plt.legend(loc='lower right')
 
 class Tube:
     materials_dict = {1: {'name': "Сталь", 'rho': 7800, 'E': 2.06 * 10**11},
@@ -126,7 +136,7 @@ class Tube:
 
 class TubeSolver(Tube):
     # для добавления кейсов надо править dict_id_dimensions, fun_maker, bc_maker
-    dict_id_dimensions = {1: 4, 2: 4}
+    dict_id_dimensions = {1: 4, 2: 4, 3: 4}
     bc_id_dimensions = {0: 2, 1: 4, 2: 4, 3: 4, 4: 4, 5: 4}
 
     def __init__(self, l=20, R=0.5, material_num=1, thickness=0.01, N=1e5, phi=0, task_id=1, bc_id=1, totalNodes=1000, addQGauss_params=[], addQ_params=[], Q_on=True):
@@ -163,7 +173,8 @@ class TubeSolver(Tube):
 
     def fun_maker(self):
         dict_fun = {1: lambda x, w: np.vstack((w[1], w[2], w[3], (-self.q(x) - self.k(x) * w[0] - self.N * w[2]) / (self.E * self.Jx))),
-                    2: lambda x, w: np.vstack((w[1], w[2], w[3], (-self.q(x)*np.cos(self.phi) - self.k(x) * w[0] - (self.N+self.q(x)*np.sin(self.phi)) * w[2]) / (self.E * self.Jx)))}
+                    2: lambda x, w: np.vstack((w[1], w[2], w[3], (-self.q(x)*np.cos(self.phi) - self.k(x) * w[0] - (self.N+self.q(x)*np.sin(self.phi)) * w[2]) / (self.E * self.Jx))),
+                    3: lambda x, w: np.vstack((w[1], w[2], w[3], (- self.N * w[2]) / (self.E * self.Jx)))}
         return dict_fun[self.task_id]
 
     def bc_maker(self):
@@ -293,14 +304,18 @@ class TubeSolver(Tube):
 class Rod():
     dict_id_dimensions = {1: 4, 2: 4}
     bc_id_dimensions = {1: 4,2: 4, 3: 4, 4: 4}
-
-    def __init__(self, l=10, n=1, delta=0.1, task_id=1, bc_id=1, totalNodes=1000):
+    materials_dict = {1: {'name': "Сталь", 'rho': 7800, 'E': 2.06 * 10**11},
+                      2: {'name': "Каучук", 'rho': 920, 'E': 8 * 10**6},
+                      3: {'name': "Алюминий", 'rho': 2700, 'E': 0.7 * 10**11}}
+    def __init__(self, l=10, n=1, delta=0.1, task_id=1, bc_id=1, totalNodes=1000,inf = False,material_num=1):
         self.__l = l
         self.__n = 4 if 1 <= n <= 4 else n
         self.__delta = delta
         self.__task_id = task_id
         self.__bc_id = bc_id
         self.__totalNodes = totalNodes
+        self.__inf = inf
+        self.__material_num = material_num
 
     @property
     def l(self):
@@ -317,10 +332,12 @@ class Rod():
     @property
     def task_id(self):
         return self.__task_id
-
+    @property
+    def inf(self):
+        return self.__inf
     @property
     def E(self):
-        return 2.06 * 10**11
+        return self.materials_dict[self.material_num]['E']
 
     @property
     def Jx(self):
@@ -351,27 +368,27 @@ class Rod():
         return 1000/self.l
 
     def fun_maker(self):
-        dict_fun = {1: lambda x, w: np.vstack((w[1], w[2], w[3], self.P/(self.E*self.Jx)*w[2])),
-                    2: lambda x, w: np.vstack((w[1], w[2], w[3], self.P/(self.E*self.Jx)*w[2]-self.rhol*9.8/(self.E*self.Jx)))}
+        dict_fun = {1: lambda x, w: np.vstack((w[1], w[2], w[3], -self.P/(self.E*self.Jx)*w[2])),
+                    2: lambda x, w: np.vstack((w[1], w[2], w[3], -self.P/(self.E*self.Jx)*w[2]-self.rhol*9.8/(self.E*self.Jx)))}
         return dict_fun[self.task_id]
 
     def bc_maker(self):  # индекс 0 для левой части, индекс 1 для правой, индекс 2 для общей части
         dict_bc = {1: [lambda ya, yb: np.array([ya[0], yb[0]-self.delta, ya[2], yb[1]]),
                        lambda ya, yb: np.array(
                            [ya[0]-self.delta, yb[0], ya[1], yb[2]]),
-                       lambda ya, yb: np.array([ya[0], yb[0], ya[1], yb[2]])],
+                       lambda ya, yb: np.array([ya[0], yb[0], ya[2], yb[2]])],
                        2: [lambda ya, yb: np.array([ya[0], yb[0]-self.delta, ya[1], yb[1]]),
                        lambda ya, yb: np.array(
                            [ya[0]-self.delta, yb[0], ya[1], yb[1]]),
-                       lambda ya, yb: np.array([ya[0], yb[0], ya[1], yb[2]])],
+                       lambda ya, yb: np.array([ya[0], yb[0], ya[2], yb[2]])],
                        3: [lambda ya, yb: np.array([ya[0], yb[0]-self.delta, ya[3], yb[1]]),
                        lambda ya, yb: np.array(
                            [ya[0]-self.delta, yb[0], ya[1], yb[3]]),
-                       lambda ya, yb: np.array([ya[0], yb[0], ya[1], yb[2]])],
+                       lambda ya, yb: np.array([ya[0], yb[0], ya[2], yb[2]])],
                        4: [lambda ya, yb: np.array([ya[0], yb[0]-self.delta, ya[2], yb[2]]),
                        lambda ya, yb: np.array(
                            [ya[0]-self.delta, yb[0], ya[2], yb[2]]),
-                       lambda ya, yb: np.array([ya[0], yb[0], ya[1], yb[2]])]}
+                       lambda ya, yb: np.array([ya[0], yb[0], ya[2], yb[2]])]}
         return dict_bc[self.bc_id]
 
     @property
@@ -381,7 +398,15 @@ class Rod():
     @property
     def totalNodes(self):
         return self.__totalNodes
-
+    @property
+    def material_num(self):
+        return self.__material_num
+    @material_num.setter
+    def material_num(self, material_num):
+        if material_num in self.materials_dict.keys():
+            self.__material_num = material_num
+        else:
+            raise ValueError('Wrong material_num')
     @property
     def x(self):
         return [np.linspace(0, self.l1, self.totalNodes), np.linspace(self.l1, self.l-self.l1, self.totalNodes),
@@ -417,17 +442,23 @@ class Rod():
 
     @property
     def stacked_x(self):
-        if self.n >= 4:
+        if self.n >= 4 and self.inf == False:
             return np.hstack([self.x[0], self.x[1], self.x[2]])
         else:
             return self.x[0]
-
+    @property
+    def infinitysol(self):
+            s0 = solve_bvp(self.fun_maker(), self.bc_maker()[2], self.x[0], self.y[0], tol=1e-10, max_nodes=self.totalNodes)
+            w0 = s0.y[0]
+            return w0
 
 class CanalRod():
     dict_id_dimensions = {1: 4, 2: 4}
     bc_id_dimensions = {1: 4,2: 4, 3: 4, 4: 4}
-
-    def __init__(self, l=10, n=1, delta=0.1, task_id=1, bc_id=1, totalNodes=1000):
+    materials_dict = {1: {'name': "Сталь", 'rho': 7800, 'E': 2.06 * 10**11},
+                      2: {'name': "Каучук", 'rho': 920, 'E': 8 * 10**6},
+                      3: {'name': "Алюминий", 'rho': 2700, 'E': 0.7 * 10**11}}
+    def __init__(self, l=5, n=1, delta=0.1, task_id=1, bc_id=1, totalNodes=1000,inf = False,material_num=1):
         if l != 0:
             self.__l = abs(l)
         else:
@@ -453,6 +484,11 @@ class CanalRod():
             self.__totalNodes = abs(totalNodes)
         else:
             raise ValueError("totalNodes can't be 0")
+        self.__inf = inf
+        if material_num in self.materials_dict.keys():
+            self.__material_num = material_num
+        else:
+            raise ValueError('Wrong material_num')
 
     @property
     def l(self):  # длина трубы
@@ -475,7 +511,16 @@ class CanalRod():
             self.__n = n
         else:
             raise ValueError("n can't be negative")
+    @property    
+    def material_num(self):
+        return self.__material_num
 
+    @material_num.setter
+    def material_num(self, material_num):
+        if material_num in self.materials_dict.keys():
+            self.__material_num = material_num
+        else:
+            raise ValueError('Wrong material_num')
     @property
     def delta(self):
         return self.__delta
@@ -520,7 +565,12 @@ class CanalRod():
             self.__totalNodes = abs(totalNodes)
         else:
             raise ValueError("totalNodes can't be 0")
-
+    @property
+    def inf(self):
+        return self.__inf
+    @inf.setter
+    def inf(self,var):
+        self.__inf = var
     @property
     def RodCount(self):
         if self.n < 16:
@@ -539,7 +589,7 @@ class CanalRod():
 
     @property
     def w(self):
-        w = [Rod(l=self.l/self.RodCount, task_id=self.task_id, bc_id=self.bc_id, totalNodes=self.totalNodes, delta=self.delta*(-1)**(i), n=self.newn)
+        w = [Rod(l=self.l/self.RodCount, task_id=self.task_id, bc_id=self.bc_id, totalNodes=self.totalNodes, delta=self.delta*(-1)**(i), n=self.newn,inf = self.inf)
              for i in range(1, self.RodCount+1)]
         return w
 
@@ -552,3 +602,19 @@ class CanalRod():
         # print(f'DEBUG: number of class ROD:{len(self.w)}')
         s = [a.solution for a in self.w]
         return np.hstack(s)
+    @property
+    def infinitysol(self):
+        s = [a.infinitysol for a in self.w]
+        return np.hstack(s)
+    @property
+    def P_equal(self):
+        return np.pi**2*self.w[0].E*self.w[0].Jx/self.l**2
+    @property
+    def P(self):
+        return self.P_equal*self.n
+    @property
+    def l1(self):
+        return self.w[0].l1
+    def findY(self,x):
+        ind = int(np.searchsorted(self.x,x))
+        return self.solution[ind]    
